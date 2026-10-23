@@ -18,7 +18,7 @@ never leaves your machine.
 - **Download PDF** through the browser's print dialog, with print styles that hide the editor.
 - **Repeatable sections** for experience, projects and education, with add, remove and reorder.
 - **Safe rendering**: all user input is HTML-escaped before it's shown in the preview.
-- **Zero dependencies**: vanilla HTML, CSS and JavaScript, about 300 lines of JS.
+- **Zero dependencies**: vanilla HTML, CSS and JavaScript, about 240 lines of JS.
 
 <img src="docs/modern.png" width="560" alt="Modern template">
 

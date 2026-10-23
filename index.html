@@ -1,60 +1,139 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <title>Home Page</title>
-        <meta name="description" content="">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="stylesheet" href="assets/css/main.css">
-    </head>
-    <body>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resume Builder</title>
+  <meta name="description" content="Build an ATS-friendly resume in your browser with live preview, autosave, JSON export and PDF download.">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <header class="topbar no-print">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M6 2h9l5 5v15H6zM14 3.5V8h4.5M8.5 12h8v1.5h-8zm0 3.5h8V17h-8zm0-7h4V10h-4z"/></svg>
+      <span>Resume Builder</span>
+    </div>
+    <div class="actions">
+      <label class="select">
+        Template
+        <select id="template">
+          <option value="classic">Classic</option>
+          <option value="modern">Modern</option>
+        </select>
+      </label>
+      <button type="button" class="btn ghost" id="btn-sample">Load sample</button>
+      <button type="button" class="btn ghost" id="btn-import">Import JSON</button>
+      <button type="button" class="btn ghost" id="btn-export">Export JSON</button>
+      <button type="button" class="btn ghost danger" id="btn-clear">Clear</button>
+      <button type="button" class="btn primary" id="btn-pdf">Download PDF</button>
+      <input type="file" id="import-file" accept="application/json" hidden>
+    </div>
+  </header>
 
-        <nav class = "navbar bg-white">
-            <div class="container">
-                <div class = "navbar-content">
-                    <div class = "brand-and-toggler">
-                        <a href = "index.html" class = "navbar-brand">
-                            <img src = "assets/images/curriculum-vitae.png" alt = "" class = "navbar-brand-icon">
-                            <span class = "navbar-brand-text">build <span>resume.</span>
-                        </a>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </nav>
+  <main class="layout">
+    <form id="editor" class="editor no-print" autocomplete="off">
+      <p class="hint">Everything you type is saved in this browser only. Nothing is uploaded.</p>
 
-        <header class = "header bg-bright" id = "header">
-            <div class = "container">
-                <div class = "header-content text-center">
-                    <h6 class = "text-uppercase text-blue-dark fs-14 fw-6 ls-1">online resume builder</h6>
-                    <h1 class = "lg-title">Resume builder</h1>
-                    <p class = "text-dark fs-18">Resume Builder is here to help you craft the perfect resume with ease and confidence.Our user-friendly Inteface and powerful tools guide you through every step of the process,ensuring you present your skills and experience in the best possible light.</p>
-                    <a href = "resume.html" class = "btn btn-primary text-uppercase">create my resume</a>
-                    <img src = "assets/images/dublin-resume-templates.avif">
-                </div>
-            </div>
-        </header>
-
-        <div class="section-one">
-            <div class="container">
-                <div class = "section-one-content">
-                    <div class="section-one-l">
-                        <img src = "assets/images/visual-0c7080adf17f1f207276f613447c924f667dab34b7ac415cd7ef653172defd0b.svg">
-                    </div>
-                    <div class = "section-one-r text-center">
-                        <h2 class = "lg-title">Use the best resume maker as your guide!</h2>
-                        <p class = "text">Use the best resume maker as your guide!
-Getting that dream job can seem like an impossible task. We're here to change that. Give yourself a real advantage with the best online resume maker: created by experts, imporved by data, trusted by millions of professionals.</p>
-                        <div class = "btn-group">
-                            <!-- <a href = "resume.html" class = "btn btn-primary text-uppercase">create my resume</a> -->
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <fieldset>
+        <legend>Personal details</legend>
+        <div class="grid-2">
+          <label>Full name<input name="name" placeholder="Jane Doe"></label>
+          <label>Job title<input name="title" placeholder="Machine Learning Engineer"></label>
+          <label>Email<input name="email" type="email" placeholder="jane@example.com"></label>
+          <label>Phone<input name="phone" placeholder="+1 555 010 0000"></label>
+          <label>Location<input name="location" placeholder="Austin, TX"></label>
+          <label>Links <small>(comma-separated)</small><input name="links" placeholder="github.com/jane, linkedin.com/in/jane"></label>
         </div>
+        <label>Summary<textarea name="summary" rows="3" placeholder="2–3 sentences on what you do and what you're looking for."></textarea></label>
+      </fieldset>
 
-        </footer>
-        
-    </body>
+      <fieldset data-section="experience">
+        <legend>Experience</legend>
+        <div class="items"></div>
+        <button type="button" class="btn add" data-add="experience">+ Add experience</button>
+      </fieldset>
+
+      <fieldset data-section="projects">
+        <legend>Projects</legend>
+        <div class="items"></div>
+        <button type="button" class="btn add" data-add="projects">+ Add project</button>
+      </fieldset>
+
+      <fieldset data-section="education">
+        <legend>Education</legend>
+        <div class="items"></div>
+        <button type="button" class="btn add" data-add="education">+ Add education</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>Skills</legend>
+        <label>One group per line, written as <code>Group: skill, skill</code>
+          <textarea name="skills" rows="4" placeholder="Languages: Python, SQL, JavaScript&#10;ML: TensorFlow, scikit-learn"></textarea>
+        </label>
+      </fieldset>
+    </form>
+
+    <section class="preview-wrap">
+      <article id="resume" class="resume classic" aria-label="Resume preview"></article>
+    </section>
+  </main>
+
+  <template id="tpl-experience">
+    <div class="item">
+      <div class="grid-2">
+        <label>Role<input data-field="role" placeholder="Software Engineer Intern"></label>
+        <label>Company<input data-field="org" placeholder="Acme Corp"></label>
+        <label>Location<input data-field="location" placeholder="Remote"></label>
+        <div class="grid-2 tight">
+          <label>Start<input data-field="start" placeholder="Jun 2025"></label>
+          <label>End<input data-field="end" placeholder="Present"></label>
+        </div>
+      </div>
+      <label>Highlights <small>(one per line)</small><textarea data-field="bullets" rows="3"></textarea></label>
+      <div class="item-actions">
+        <button type="button" class="btn tiny" data-move="-1" aria-label="Move up">↑</button>
+        <button type="button" class="btn tiny" data-move="1" aria-label="Move down">↓</button>
+        <button type="button" class="btn tiny danger" data-remove>Remove</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-projects">
+    <div class="item">
+      <div class="grid-2">
+        <label>Project name<input data-field="name" placeholder="Fake News Detector"></label>
+        <label>Link<input data-field="link" placeholder="github.com/jane/project"></label>
+      </div>
+      <label>Tech stack<input data-field="tech" placeholder="Python, TensorFlow, Streamlit"></label>
+      <label>Highlights <small>(one per line)</small><textarea data-field="bullets" rows="3"></textarea></label>
+      <div class="item-actions">
+        <button type="button" class="btn tiny" data-move="-1" aria-label="Move up">↑</button>
+        <button type="button" class="btn tiny" data-move="1" aria-label="Move down">↓</button>
+        <button type="button" class="btn tiny danger" data-remove>Remove</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-education">
+    <div class="item">
+      <div class="grid-2">
+        <label>Degree<input data-field="degree" placeholder="B.E. Computer Science"></label>
+        <label>School<input data-field="school" placeholder="University name"></label>
+        <label>Location<input data-field="location" placeholder="City"></label>
+        <div class="grid-2 tight">
+          <label>Start<input data-field="start" placeholder="2021"></label>
+          <label>End<input data-field="end" placeholder="2025"></label>
+        </div>
+      </div>
+      <label>Details <small>(optional, one per line)</small><textarea data-field="bullets" rows="2" placeholder="GPA 3.8/4.0"></textarea></label>
+      <div class="item-actions">
+        <button type="button" class="btn tiny" data-move="-1" aria-label="Move up">↑</button>
+        <button type="button" class="btn tiny" data-move="1" aria-label="Move down">↓</button>
+        <button type="button" class="btn tiny danger" data-remove>Remove</button>
+      </div>
+    </div>
+  </template>
+
+  <script src="assets/js/app.js"></script>
+</body>
 </html>

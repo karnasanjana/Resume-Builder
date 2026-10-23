@@ -1,0 +1,135 @@
+:root {
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --text: #1f2328;
+  --muted: #5f6b7a;
+  --line: #d9dee5;
+  --primary: #2457d6;
+  --primary-ink: #ffffff;
+  --danger: #c0392b;
+  --accent: #2457d6;
+  --radius: 8px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+  padding: 10px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; color: var(--primary); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.select { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+.select select { padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+
+.btn {
+  font: inherit; cursor: pointer;
+  padding: 7px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--panel); color: var(--text);
+}
+.btn:hover { border-color: var(--primary); }
+.btn.primary { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
+.btn.danger { color: var(--danger); }
+.btn.add { width: 100%; border-style: dashed; color: var(--primary); }
+.btn.tiny { padding: 3px 8px; font-size: 12px; }
+
+/* ---------- layout ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(340px, 460px) 1fr;
+  gap: 20px;
+  padding: 20px;
+  align-items: start;
+}
+@media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+
+/* ---------- editor ---------- */
+.editor { display: flex; flex-direction: column; gap: 14px; }
+.hint { margin: 0; color: var(--muted); font-size: 12px; }
+fieldset {
+  min-width: 0; /* fieldsets default to min-content, which made panel widths uneven */
+  margin: 0; padding: 14px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel);
+  display: flex; flex-direction: column; gap: 10px;
+}
+legend { font-weight: 700; padding: 0 6px; }
+label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
+label small { font-size: 11px; }
+input, textarea {
+  font: inherit; color: var(--text);
+  padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: #fff;
+}
+input:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--primary) 35%, transparent); border-color: var(--primary); }
+textarea { resize: vertical; }
+input, textarea { width: 100%; min-width: 0; }
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.grid-2.tight { gap: 6px; }
+@media (max-width: 480px) { .grid-2 { grid-template-columns: 1fr; } }
+.items { display: flex; flex-direction: column; gap: 10px; }
+.item { border: 1px solid var(--line); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #fafbfc; }
+.item-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+/* ---------- preview (US Letter / A4-ish page) ---------- */
+.preview-wrap { position: sticky; top: 70px; overflow-x: auto; }
+.resume {
+  width: 8.5in; min-height: 11in;
+  margin: 0 auto;
+  padding: 0.6in 0.65in;
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, .12);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10.5pt; line-height: 1.35; color: #111;
+}
+.resume h1 { margin: 0; font-size: 22pt; letter-spacing: .5px; }
+.resume .r-title { margin: 2px 0 0; font-size: 11.5pt; color: #333; }
+.resume .r-contact { margin: 6px 0 0; font-size: 9.5pt; color: #333; }
+.resume .r-contact span + span::before { content: " · "; color: #888; }
+.resume h2 {
+  margin: 14px 0 6px; padding-bottom: 2px;
+  font-size: 11pt; text-transform: uppercase; letter-spacing: 1px;
+  border-bottom: 1px solid #222;
+}
+.resume .r-entry { margin-bottom: 8px; break-inside: avoid; }
+.resume .r-row { display: flex; justify-content: space-between; gap: 12px; }
+.resume .r-row strong { font-weight: 700; }
+.resume .r-sub { color: #333; font-style: italic; }
+.resume .r-date { white-space: nowrap; color: #333; }
+.resume ul { margin: 3px 0 0; padding-left: 18px; }
+.resume li { margin: 1px 0; }
+.resume .r-skills p { margin: 2px 0; }
+.resume a { color: inherit; text-decoration: none; }
+.resume .r-empty { color: #999; font-style: italic; text-align: center; margin-top: 3in; font-family: system-ui, sans-serif; }
+
+/* Modern template: sans-serif, accent colour, left-aligned header bar */
+.resume.modern { font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 10pt; }
+.resume.modern header { border-left: 5px solid var(--accent); padding-left: 12px; }
+.resume.modern h1 { color: var(--accent); font-size: 24pt; }
+.resume.modern h2 { color: var(--accent); border-bottom: 2px solid var(--accent); letter-spacing: 1.5px; }
+.resume.modern .r-sub { font-style: normal; color: #555; }
+
+/* ---------- print: only the resume, one clean page flow ---------- */
+@page { size: letter; margin: 0; }
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .layout { display: block; padding: 0; }
+  .preview-wrap { position: static; overflow: visible; }
+  .resume { box-shadow: none; margin: 0; width: auto; min-height: 0; }
+  .resume.modern h1, .resume.modern h2 { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

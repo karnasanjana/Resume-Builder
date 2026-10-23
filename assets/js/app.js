@@ -1,228 +1,237 @@
-// regex for validation
-const strRegex =  /^[a-zA-Z\s]*$/; // containing only letters
-const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-const phoneRegex = /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im;
-/* supports following number formats - (123) 456-7890, (123)456-7890, 123-456-7890, 123.456.7890, 1234567890, +31636363634, 075-63546725 */
-const digitRegex = /^\d+$/;
+// Resume Builder: form state <-> live preview, autosave, JSON import/export, print to PDF.
+(() => {
+  "use strict";
 
-const mainForm = document.getElementById('cv-form');
-const validType = {
-    TEXT: 'text',
-    TEXT_EMP: 'text_emp',
-    EMAIL: 'email',
-    DIGIT: 'digit',
-    PHONENO: 'phoneno',
-    ANY: 'any',
-}
+  const STORAGE_KEY = "resume-builder:v1";
+  const SECTIONS = ["experience", "projects", "education"];
 
-// user inputs elements
-let firstnameElem = mainForm.firstname,
-    middlenameElem = mainForm.middlename,
-    lastnameElem = mainForm.lastname,
-    imageElem = mainForm.image,
-    designationElem = mainForm.designation,
-    addressElem = mainForm.address,
-    emailElem = mainForm.email,
-    phonenoElem = mainForm.phoneno,
-    summaryElem = mainForm.summary;
+  const form = document.getElementById("editor");
+  const resumeEl = document.getElementById("resume");
+  const templateSelect = document.getElementById("template");
 
-// display elements
-let nameDsp = document.getElementById('fullname_dsp'),
-    imageDsp = document.getElementById('image_dsp'),
-    phonenoDsp = document.getElementById('phoneno_dsp'),
-    emailDsp = document.getElementById('email_dsp'),
-    addressDsp = document.getElementById('address_dsp'),
-    designationDsp = document.getElementById('designation_dsp'),
-    summaryDsp = document.getElementById('summary_dsp'),
-    projectsDsp = document.getElementById('projects_dsp'),
-    achievementsDsp = document.getElementById('achievements_dsp'),
-    skillsDsp = document.getElementById('skills_dsp'),
-    educationsDsp = document.getElementById('educations_dsp'),
-    experiencesDsp = document.getElementById('experiences_dsp');
+  const SAMPLE = {
+    template: "classic",
+    name: "Jane Doe",
+    title: "Machine Learning Engineer",
+    email: "jane.doe@example.com",
+    phone: "+1 555 010 0000",
+    location: "Austin, TX",
+    links: "github.com/janedoe, linkedin.com/in/janedoe",
+    summary: "ML engineer who ships models end to end, from data cleaning and evaluation to a working app. Looking for roles building applied ML and LLM systems.",
+    experience: [
+      {
+        role: "Software Engineer Intern", org: "Example Labs", location: "Remote",
+        start: "Jun 2025", end: "Aug 2025",
+        bullets: "Built an LLM agent that turns requirement documents into data pipelines, with validation before deploy\nWrote 180 unit tests and a mock mode so the full flow runs offline in CI",
+      },
+    ],
+    projects: [
+      {
+        name: "Fake News Detector", link: "github.com/janedoe/fake-news", tech: "Python, TensorFlow, Streamlit",
+        bullets: "1D-CNN classifier reaching 99.3% test accuracy after removing source-label leakage\nShipped as a Streamlit app with a saved end-to-end model",
+      },
+    ],
+    education: [
+      {
+        degree: "B.E. Computer Science", school: "Example University", location: "Hyderabad, India",
+        start: "2021", end: "2025", bullets: "",
+      },
+    ],
+    skills: "Languages: Python, SQL, JavaScript\nML: TensorFlow, scikit-learn, PyTorch\nTools: FastAPI, Flask, Git, Azure",
+  };
 
-// first value is for the attributes and second one passes the nodelists
-const fetchValues = (attrs, ...nodeLists) => {
-    let elemsAttrsCount = nodeLists.length;
-    let elemsDataCount = nodeLists[0].length;
-    let tempDataArr = [];
+  // ---------- helpers ----------
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const lines = (s) => String(s ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const hasAny = (obj) => Object.values(obj).some((v) => String(v ?? "").trim());
 
-    // first loop deals with the no of repeaters value
-    for(let i = 0; i < elemsDataCount; i++){
-        let dataObj = {}; // creating an empty object to fill the data
-        // second loop fetches the data for each repeaters value or attributes 
-        for(let j = 0; j < elemsAttrsCount; j++){
-            // setting the key name for the object and fill it with data
-            dataObj[`${attrs[j]}`] = nodeLists[j][i].value;
-        }
-        tempDataArr.push(dataObj);
+  const storage = {
+    load() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch { return null; }
+    },
+    save(data) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* private mode etc. */ }
+    },
+  };
+
+  // ---------- repeatable items ----------
+  function addItem(section, values = {}) {
+    const tpl = document.getElementById(`tpl-${section}`);
+    const node = tpl.content.firstElementChild.cloneNode(true);
+    node.querySelectorAll("[data-field]").forEach((el) => { el.value = values[el.dataset.field] ?? ""; });
+    form.querySelector(`[data-section="${section}"] .items`).appendChild(node);
+    return node;
+  }
+
+  function readItems(section) {
+    return [...form.querySelectorAll(`[data-section="${section}"] .item`)].map((item) => {
+      const obj = {};
+      item.querySelectorAll("[data-field]").forEach((el) => { obj[el.dataset.field] = el.value; });
+      return obj;
+    });
+  }
+
+  // ---------- state ----------
+  function readState() {
+    const state = { template: templateSelect.value };
+    ["name", "title", "email", "phone", "location", "links", "summary", "skills"]
+      .forEach((k) => { state[k] = form.elements[k].value; });
+    SECTIONS.forEach((s) => { state[s] = readItems(s); });
+    return state;
+  }
+
+  function writeState(state) {
+    const s = state || {};
+    templateSelect.value = s.template === "modern" ? "modern" : "classic";
+    ["name", "title", "email", "phone", "location", "links", "summary", "skills"]
+      .forEach((k) => { form.elements[k].value = s[k] ?? ""; });
+    SECTIONS.forEach((sec) => {
+      form.querySelector(`[data-section="${sec}"] .items`).replaceChildren();
+      const items = Array.isArray(s[sec]) && s[sec].length ? s[sec] : [{}];
+      items.forEach((v) => addItem(sec, v));
+    });
+  }
+
+  // ---------- rendering ----------
+  const bulletList = (text) => {
+    const items = lines(text);
+    return items.length ? `<ul>${items.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "";
+  };
+  const dateRange = (a, b) => [a, b].map((x) => String(x ?? "").trim()).filter(Boolean).map(esc).join(" – ");
+
+  function renderEntries(items, fn) {
+    return items.filter(hasAny).map(fn).join("");
+  }
+
+  function render(state) {
+    resumeEl.className = `resume ${state.template}`;
+
+    const contact = [state.email, state.phone, state.location, ...String(state.links).split(",")]
+      .map((x) => String(x ?? "").trim()).filter(Boolean)
+      .map((x) => `<span>${esc(x)}</span>`).join("");
+
+    const experience = renderEntries(state.experience, (e) => `
+      <div class="r-entry">
+        <div class="r-row"><strong>${esc(e.role)}</strong><span class="r-date">${dateRange(e.start, e.end)}</span></div>
+        <div class="r-row r-sub"><span>${esc(e.org)}</span><span>${esc(e.location)}</span></div>
+        ${bulletList(e.bullets)}
+      </div>`);
+
+    const projects = renderEntries(state.projects, (p) => `
+      <div class="r-entry">
+        <div class="r-row"><strong>${esc(p.name)}${p.tech ? ` <span class="r-sub">| ${esc(p.tech)}</span>` : ""}</strong><span>${esc(p.link)}</span></div>
+        ${bulletList(p.bullets)}
+      </div>`);
+
+    const education = renderEntries(state.education, (e) => `
+      <div class="r-entry">
+        <div class="r-row"><strong>${esc(e.degree)}</strong><span class="r-date">${dateRange(e.start, e.end)}</span></div>
+        <div class="r-row r-sub"><span>${esc(e.school)}</span><span>${esc(e.location)}</span></div>
+        ${bulletList(e.bullets)}
+      </div>`);
+
+    const skills = lines(state.skills).map((line) => {
+      const i = line.indexOf(":");
+      return i > 0
+        ? `<p><strong>${esc(line.slice(0, i))}:</strong> ${esc(line.slice(i + 1).trim())}</p>`
+        : `<p>${esc(line)}</p>`;
+    }).join("");
+
+    const section = (title, body) => (body ? `<section><h2>${title}</h2>${body}</section>` : "");
+    const header = state.name || state.title || contact
+      ? `<header>
+           ${state.name ? `<h1>${esc(state.name)}</h1>` : ""}
+           ${state.title ? `<p class="r-title">${esc(state.title)}</p>` : ""}
+           ${contact ? `<p class="r-contact">${contact}</p>` : ""}
+         </header>`
+      : "";
+
+    const body = header
+      + section("Summary", state.summary.trim() ? `<p>${esc(state.summary.trim())}</p>` : "")
+      + section("Experience", experience)
+      + section("Projects", projects)
+      + section("Education", education)
+      + section("Skills", skills ? `<div class="r-skills">${skills}</div>` : "");
+
+    resumeEl.innerHTML = body || `<p class="r-empty">Start typing on the left, or click <b>Load sample</b>.</p>`;
+    document.title = state.name ? `${state.name} – Resume` : "Resume Builder";
+  }
+
+  function update() {
+    const state = readState();
+    render(state);
+    storage.save(state);
+  }
+
+  // ---------- events ----------
+  form.addEventListener("input", update);
+  templateSelect.addEventListener("change", update);
+
+  form.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    if (btn.dataset.add) {
+      addItem(btn.dataset.add).querySelector("[data-field]").focus();
+    } else if (btn.hasAttribute("data-remove")) {
+      btn.closest(".item").remove();
+    } else if (btn.dataset.move) {
+      const item = btn.closest(".item");
+      const sibling = btn.dataset.move === "-1" ? item.previousElementSibling : item.nextElementSibling;
+      if (sibling) btn.dataset.move === "-1" ? sibling.before(item) : sibling.after(item);
+    } else {
+      return;
     }
+    update();
+  });
 
-    return tempDataArr;
-}
+  document.getElementById("btn-sample").addEventListener("click", () => {
+    if (hasContent() && !confirm("Replace what you've typed with the sample resume?")) return;
+    writeState(SAMPLE);
+    update();
+  });
 
-const getUserInputs = () => {
+  document.getElementById("btn-clear").addEventListener("click", () => {
+    if (!confirm("Clear the whole resume? This can't be undone (export JSON first to keep a copy).")) return;
+    writeState({});
+    update();
+  });
 
-    // achivements 
-    let achievementsTitleElem = document.querySelectorAll('.achieve_title'),
-    achievementsDescriptionElem = document.querySelectorAll('.achieve_description');
+  document.getElementById("btn-export").addEventListener("click", () => {
+    const state = readState();
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${(state.name || "resume").trim().replace(/\s+/g, "_")}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
 
-    // experiences
-    let expTitleElem = document.querySelectorAll('.exp_title'),
-    expOrganizationElem = document.querySelectorAll('.exp_organization'),
-    expLocationElem = document.querySelectorAll('.exp_location'),
-    expStartDateElem = document.querySelectorAll('.exp_start_date'),
-    expEndDateElem = document.querySelectorAll('.exp_end_date'),
-    expDescriptionElem = document.querySelectorAll('.exp_description');
-
-    // education
-    let eduSchoolElem = document.querySelectorAll('.edu_school'),
-    eduDegreeElem = document.querySelectorAll('.edu_degree'),
-    eduCityElem = document.querySelectorAll('.edu_city'),
-    eduStartDateElem = document.querySelectorAll('.edu_start_date'),
-    eduGraduationDateElem = document.querySelectorAll('.edu_graduation_date'),
-    eduDescriptionElem = document.querySelectorAll('.edu_description');
-
-    let projTitleElem = document.querySelectorAll('.proj_title'),
-    projLinkElem = document.querySelectorAll('.proj_link'),
-    projDescriptionElem = document.querySelectorAll('.proj_description');
-
-    let skillElem = document.querySelectorAll('.skill');
-
-    // event listeners for form validation
-    firstnameElem.addEventListener('keyup', (e) => validateFormData(e.target, validType.TEXT, 'First Name'));
-    middlenameElem.addEventListener('keyup', (e) => validateFormData(e.target, validType.TEXT_EMP, 'Middle Name'));
-    lastnameElem.addEventListener('keyup', (e) => validateFormData(e.target, validType.TEXT, 'Last Name'));
-    phonenoElem.addEventListener('keyup', (e) => validateFormData(e.target, validType.PHONENO, 'Phone Number'));
-    emailElem.addEventListener('keyup', (e) => validateFormData(e.target, validType.EMAIL, 'Email'));
-    addressElem.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'Address'));
-    designationElem.addEventListener('keyup', (e) => validateFormData(e.target, validType.TEXT, 'Designation'));
-
-    achievementsTitleElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'Title')));
-    achievementsDescriptionElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'Description')));
-    expTitleElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'Title')));
-    expOrganizationElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'Organization')));
-    expLocationElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, "Location")));
-    expStartDateElem.forEach(item => item.addEventListener('blur', (e) => validateFormData(e.target, validType.ANY, 'End Date')));
-    expEndDateElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'End Date')));
-    expDescriptionElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'Description')));
-    eduSchoolElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'School')));
-    eduDegreeElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'Degree')));
-    eduCityElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'City')));
-    eduStartDateElem.forEach(item => item.addEventListener('blur', (e) => validateFormData(e.target, validType.ANY, 'Start Date')));
-    eduGraduationDateElem.forEach(item => item.addEventListener('blur', (e) => validateFormData(e.target, validType.ANY, 'Graduation Date')));
-    eduDescriptionElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'Description')));
-    projTitleElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'Title')));
-    projLinkElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'Link')));
-    projDescriptionElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'Description')));
-    skillElem.forEach(item => item.addEventListener('keyup', (e) => validateFormData(e.target, validType.ANY, 'skill')));
-
-    return {
-        firstname: firstnameElem.value,
-        middlename: middlenameElem.value,
-        lastname: lastnameElem.value,
-        designation: designationElem.value,
-        address: addressElem.value,
-        email: emailElem.value,
-        phoneno: phonenoElem.value,
-        summary: summaryElem.value,
-        achievements: fetchValues(['achieve_title', 'achieve_description'], achievementsTitleElem, achievementsDescriptionElem),
-        experiences: fetchValues(['exp_title', 'exp_organization', 'exp_location', 'exp_start_date', 'exp_end_date', 'exp_description'], expTitleElem, expOrganizationElem, expLocationElem, expStartDateElem, expEndDateElem, expDescriptionElem),
-        educations: fetchValues(['edu_school', 'edu_degree', 'edu_city', 'edu_start_date', 'edu_graduation_date', 'edu_description'], eduSchoolElem, eduDegreeElem, eduCityElem, eduStartDateElem, eduGraduationDateElem, eduDescriptionElem),
-        projects: fetchValues(['proj_title', 'proj_link', 'proj_description'], projTitleElem, projLinkElem, projDescriptionElem),
-        skills: fetchValues(['skill'], skillElem)
+  const importInput = document.getElementById("import-file");
+  document.getElementById("btn-import").addEventListener("click", () => importInput.click());
+  importInput.addEventListener("change", async () => {
+    const file = importInput.files[0];
+    importInput.value = "";
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (typeof data !== "object" || data === null) throw new Error("not an object");
+      writeState(data);
+      update();
+    } catch {
+      alert("That file isn't a valid resume JSON export.");
     }
-};
+  });
 
-function validateFormData(elem, elemType, elemName){
-    // checking for text string and non empty string
-    if(elemType == validType.TEXT){
-        if(!strRegex.test(elem.value) || elem.value.trim().length == 0) addErrMsg(elem, elemName);
-        else removeErrMsg(elem);
-    }
+  document.getElementById("btn-pdf").addEventListener("click", () => window.print());
 
-    // checking for only text string
-    if(elemType == validType.TEXT_EMP){
-        if(!strRegex.test(elem.value)) addErrMsg(elem, elemName);
-        else removeErrMsg(elem);
-    }
+  function hasContent() {
+    const s = readState();
+    return ["name", "title", "summary", "skills"].some((k) => s[k].trim())
+      || SECTIONS.some((sec) => s[sec].some(hasAny));
+  }
 
-    // checking for email
-    if(elemType == validType.EMAIL){
-        if(!emailRegex.test(elem.value) || elem.value.trim().length == 0) addErrMsg(elem, elemName);
-        else removeErrMsg(elem);
-    }
-
-    // checking for phone number
-    if(elemType == validType.PHONENO){
-        if(!phoneRegex.test(elem.value) || elem.value.trim().length == 0) addErrMsg(elem, elemName);
-        else removeErrMsg(elem);
-    }
-
-    // checking for only empty
-    if(elemType == validType.ANY){
-        if(elem.value.trim().length == 0) addErrMsg(elem, elemName);
-        else removeErrMsg(elem);
-    }
-}
-
-// adding the invalid text
-function addErrMsg(formElem, formElemName){
-    formElem.nextElementSibling.innerHTML = `${formElemName} is invalid`;
-}
-
-// removing the invalid text 
-function removeErrMsg(formElem){
-    formElem.nextElementSibling.innerHTML = "";
-}
-
-// show the list data
-const showListData = (listData, listContainer) => {
-    listContainer.innerHTML = "";
-    listData.forEach(listItem => {
-        let itemElem = document.createElement('div');
-        itemElem.classList.add('preview-item');
-        
-        for(const key in listItem){
-            let subItemElem = document.createElement('span');
-            subItemElem.classList.add('preview-item-val');
-            subItemElem.innerHTML = `${listItem[key]}`;
-            itemElem.appendChild(subItemElem);
-        }
-
-        listContainer.appendChild(itemElem);
-    })
-}
-
-const displayCV = (userData) => {
-    nameDsp.innerHTML = userData.firstname + " " + userData.middlename + " " + userData.lastname;
-    phonenoDsp.innerHTML = userData.phoneno;
-    emailDsp.innerHTML = userData.email;
-    addressDsp.innerHTML = userData.address;
-    designationDsp.innerHTML = userData.designation;
-    summaryDsp.innerHTML = userData.summary;
-    showListData(userData.projects, projectsDsp);
-    showListData(userData.achievements, achievementsDsp);
-    showListData(userData.skills, skillsDsp);
-    showListData(userData.educations, educationsDsp);
-    showListData(userData.experiences, experiencesDsp);
-}
-
-// generate CV
-const generateCV = () => {
-    let userData = getUserInputs();
-    displayCV(userData);
-    console.log(userData);
-}
-
-function previewImage(){
-    let oFReader = new FileReader();
-    oFReader.readAsDataURL(imageElem.files[0]);
-    oFReader.onload = function(ofEvent){
-        imageDsp.src = ofEvent.target.result;
-    }
-}
-
-// print CV
-function printCV(){
-    window.print();
-}
+  // ---------- boot ----------
+  writeState(storage.load() || {});
+  update();
+})();
